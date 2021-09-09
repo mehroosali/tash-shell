@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "libgen.h": "c",
+        "proj2.h": "c",
+        "string.h": "c",
+        "unistd.h": "c"
+    }
+}
