@@ -10,6 +10,7 @@ int main(void) {
 char* line;
 size_t len=0;
 ssize_t line_len;
+char error_message[30] = "An error has occurred \n";
 
 printf("tash> ");
 
@@ -19,7 +20,8 @@ line[strcspn(line, "\n" )] = '\0';  //look for the first instance of '\n' and re
 
 //first count how many words there are
 int wordCount = 1;
-for(int i = 0; i < strlen(line); i++) {  
+int i;
+for(i = 0; i < strlen(line); i++) {  
     if(line[i] == ' ')  {
         wordCount++;  
     }
@@ -27,14 +29,30 @@ for(int i = 0; i < strlen(line); i++) {
 
 //create an array with wordCount many words (and one more for null terminated)
 char* myargs[wordCount+1];
-printf("There are %d word slots\n", wordCount+1);
+
 
 //tokenize line into myargs[] until null (and save the null too)
-int i = 0;
+i = 0;
 myargs[i] = strtok(line, " ");
-while(myargs[i]!=NULL)	{
+while(myargs[i]!=NULL){
     i++;
     myargs[i] = strtok(NULL, " ");
+}
+
+//checking for inbuilt exit command
+if(strcmp(myargs[0],"exit") == 0){
+if(wordCount  > 1){
+write(STDERR_FILENO, error_message, strlen(error_message));
+}else{
+exit(0);
+}
+}
+
+//checking for inbuilt cd command
+if(strcmp(myargs[0], "cd") == 0){
+if(wordCount == 1 || wordCount > 2 || chdir(myargs[1]) != 0 ){
+write(STDERR_FILENO, error_message, strlen(error_message));
+}
 }
 
 //fork a process
