@@ -1,0 +1,10 @@
+copy the directory P1 to your local directory.
+cd to P1. Execute all test cases under xtratestcases/ from P1.
+'.in' contains the test cases. Execute them in batch mode.
+'.out' contains the expected output. 
+'.desc' constains the description.
+
+Some '.in' file may contain strings like '<path to P1>'. Replace this with the absolute path of P1 from the root.
+We have automated script to test your program. If your program print anything additional or different than expected for a test case, your program would have failed the test case.
+
+Additional test cases are in testcases.txt, and testcase-2-longcmd.txt. The test case with a long command has more weightage. So, make sure your program passes it.
