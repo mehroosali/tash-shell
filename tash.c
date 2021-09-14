@@ -6,15 +6,42 @@
 #include <sys/wait.h>
 
 
-int main(void) {
+int main(int argc, char* argv[]) {
+
+FILE * fp;
 char* line;
 size_t len=0;
 ssize_t line_len;
 char error_message[30] = "An error has occurred \n";
+int isbatch = 0; //creating a flag to check if the mode is a batch mode
 
-printf("tash> ");
+/*
+checking program arguments to check if batch mode
+If batch mode, we create a file pointer to the existing file
+else let the file pointer point to stdin for interative mode.
+*/
+if(argc == 1){
+fp = stdin;
+}
+else if(argc == 2) {
+fp = fopen(argv[1], "r");
+if(fp == NULL) {
+write(STDERR_FILENO, error_message, strlen(error_message));
+exit(0);
+}
+isbatch = 1;
+} else {
+write(STDERR_FILENO, error_message, strlen(error_message));
+exit(0);
+}
 
-while((line_len = getline(&line,&len,stdin)) != -1){
+// printing tash> if interactive mode 
+if (isbatch == 0){
+printf("tash> "); 
+}
+
+//fp is passed here. 
+while((line_len = getline(&line,&len,fp)) != -1){
 //chop off newline character as it causes problems in execvp
 line[strcspn(line, "\n" )] = '\0';  //look for the first instance of '\n' and replace it with terminating character.
 
@@ -62,12 +89,19 @@ int rc = fork();
 if(rc==0){
 
 execvp(myargs[0], myargs);
-
 } else { //parent waits until child, then preps for more input
 int wc = wait(NULL);
-printf("tash> ");
+// printing tash> if interactive mode 
+if (isbatch == 0){
+printf("tash> "); 
 }
-}   //while loop
+}
+}   //while loop ends
+
+// close the opened file if batch mode 
+if (isbatch == 1){
+fclose(fp);
+}
 
 return 0;
 }
