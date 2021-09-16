@@ -6,6 +6,11 @@
 #include <sys/wait.h>
 
 
+void processCommand()   {
+
+}
+
+
 int main(int argc, char* argv[]) {
 
 FILE * fp;
@@ -21,23 +26,22 @@ If batch mode, we create a file pointer to the existing file
 else let the file pointer point to stdin for interative mode.
 */
 if(argc == 1){
-fp = stdin;
-}
-else if(argc == 2) {
-fp = fopen(argv[1], "r");
-if(fp == NULL) {
-write(STDERR_FILENO, error_message, strlen(error_message));
-exit(0);
-}
-isbatch = 1;
+    fp = stdin;
+} else if(argc == 2) {
+    fp = fopen(argv[1], "r");
+    if(fp == NULL) {
+        write(STDERR_FILENO, error_message, strlen(error_message));
+        exit(0);
+    }
+    isbatch = 1;
 } else {
-write(STDERR_FILENO, error_message, strlen(error_message));
-exit(0);
+    write(STDERR_FILENO, error_message, strlen(error_message));
+    exit(0);
 }
 
 // printing tash> if interactive mode 
 if (isbatch == 0){
-printf("tash> "); 
+    printf("tash> "); 
 }
 
 //fp is passed here. 
@@ -57,8 +61,8 @@ for(i = 0; i < strlen(line); i++) {
 //create an array with wordCount many words (and one more for null terminated)
 char* myargs[wordCount+1];
 
-
 //tokenize line into myargs[] until null (and save the null too)
+//TODO this should simply split base on whitespace, not specifically one space, but tabs and multiple spaces
 i = 0;
 myargs[i] = strtok(line, " ");
 while(myargs[i]!=NULL){
@@ -66,41 +70,73 @@ while(myargs[i]!=NULL){
     myargs[i] = strtok(NULL, " ");
 }
 
+//TODO all of these (except exit) need work to be looping nicely with our external commands.
+//TODO probably just a refactor actually.
+
 //checking for inbuilt exit command
 if(strcmp(myargs[0],"exit") == 0){
-if(wordCount  > 1){
-write(STDERR_FILENO, error_message, strlen(error_message));
-}else{
-exit(0);
-}
+    if(wordCount > 1){
+        write(STDERR_FILENO, error_message, strlen(error_message));
+    } else {
+        exit(0);
+    }
 }
 
 //checking for inbuilt cd command
 if(strcmp(myargs[0], "cd") == 0){
-if(wordCount == 1 || wordCount > 2 || chdir(myargs[1]) != 0 ){
-write(STDERR_FILENO, error_message, strlen(error_message));
+    if(wordCount == 1 || wordCount > 2 || chdir(myargs[1]) != 0 ){
+        write(STDERR_FILENO, error_message, strlen(error_message));
+    }
 }
+
+//checking for inbuild path command
+if(strcmp(myargs[0], "path") == 0){
+    char* args = malloc(255*wordCount); //malloc ~255 characters per path
+    strcat(args, "PATH=");
+
+    //append arguments
+    printf("%d words\n", wordCount);
+    for(int i = 1; i<wordCount; i++)  {
+        strcat(args, " ");
+        strcat(args, myargs[i]);
+    }
+    //TODO this might need to have no space after the equals
+    printf("%s\n", args);
+    putenv(args);
+    free(args);
 }
 
 //fork a process
 int rc = fork();
 
-//child executes command
-if(rc==0){
-
-execvp(myargs[0], myargs);
-} else { //parent waits until child, then preps for more input
-int wc = wait(NULL);
-// printing tash> if interactive mode 
-if (isbatch == 0){
-printf("tash> "); 
-}
+if(rc==0){  //child executes command
+    //Check for redirections (which don't need spaces, and take only one argument, which is a path)
+    for(int i = 1; i<wordCount; i++)    {
+        char* ret = strchr(myargs[i], '>');
+        if (ret!=NULL)  {
+            if(i<wordCount-1 || i==wordCount-1 && (strcmp(ret, '>') != 0))  {
+                //either there are more than two arguments left, or there is an argument left, and something after '>'
+                printf("errored \n");
+                write(STDERR_FILENO, error_message, strlen(error_message));
+            } else {
+                //TODO redirect then break
+                break;
+            }
+        }
+    }
+    execvp(myargs[0], myargs);
+} else {    //parent waits until child, then preps for more input
+    int wc = wait(NULL);
+    // printing tash> if interactive mode 
+    if (isbatch == 0){
+        printf("tash> "); 
+    }
 }
 }   //while loop ends
 
 // close the opened file if batch mode 
 if (isbatch == 1){
-fclose(fp);
+    fclose(fp);
 }
 
 return 0;
