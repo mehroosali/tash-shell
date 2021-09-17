@@ -5,11 +5,29 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+/*** GLOBAL VARIABLES ***/
+char error_message[30] = "An error has occurred \n";
 
-void processCommand()   {
 
+int processCommand()   {
+
+
+    return 0;
 }
 
+int tester(int argc, char* argv[]) {
+    printf ("Hello World");
+    char *line = "Wow so  many \t  words\tnow";
+    int i = 0;
+    char *myargs[15];
+    myargs[i] = strtok(line, " \t");
+    while (myargs[i] != NULL) {
+        i++;
+        myargs[i] = strtok (NULL, " ");
+        printf ("%s ", myargs[i]);
+    }
+    return 0;
+}
 
 int main(int argc, char* argv[]) {
 
@@ -17,7 +35,6 @@ FILE * fp;
 char* line;
 size_t len=0;
 ssize_t line_len;
-char error_message[30] = "An error has occurred \n";
 int isbatch = 0; //creating a flag to check if the mode is a batch mode
 
 /*
@@ -44,8 +61,42 @@ if (isbatch == 0){
     printf("tash> "); 
 }
 
+/************
+ROUGH OUTLINE
+
+(FUNCTION)
+OneCommandLine:
+    Process commandLine by '&' parallel
+    While commands remain:
+        Process commandLine by ' \t'
+        InBuildCommands()
+        else: fork
+            Process commandLine further by '>'
+                Do appropriate redirection
+            Child:
+                Check for redirect
+                Execute
+                SafetyExit
+        Make sure previous command is eaten
+    All commands forked
+    Parent: wait for all children
+Return
+
+(MAIN)
+Batch or not?
+batch?: while{commandLine}:OneCommandLine    //Error only if we get >1 arg, or a bad batch file
+else promt, while{commandLine}: OneCommandLine, Prompt
+Program end
+
+
+EOF exits us
+*************/
+
 //fp is passed here. 
 while((line_len = getline(&line,&len,fp)) != -1){
+
+    int ret = processCommand();
+
 //chop off newline character as it causes problems in execvp
 line[strcspn(line, "\n" )] = '\0';  //look for the first instance of '\n' and replace it with terminating character.
 
@@ -62,9 +113,10 @@ for(i = 0; i < strlen(line); i++) {
 char* myargs[wordCount+1];
 
 //tokenize line into myargs[] until null (and save the null too)
-//TODO this should simply split base on whitespace, not specifically one space, but tabs and multiple spaces
+//this should simply split base on tabs and multiple spaces
+//verify it does whitespaces as desired
 i = 0;
-myargs[i] = strtok(line, " ");
+myargs[i] = strtok(line, " \t");
 while(myargs[i]!=NULL){
     i++;
     myargs[i] = strtok(NULL, " ");
@@ -125,6 +177,8 @@ if(rc==0){  //child executes command
         }
     }
     execvp(myargs[0], myargs);
+    //TODO the execvp failed
+    exit(1);
 } else {    //parent waits until child, then preps for more input
     int wc = wait(NULL);
     // printing tash> if interactive mode 
