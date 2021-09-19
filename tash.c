@@ -40,20 +40,20 @@ EOF exits us
 /*** GLOBAL VARIABLES ***/
 char error_message[30] = "An error has occurred\n";
 //TODO make path variable better
-char* path[];
-
+char* path[10] = {"/bin"};
 
 void processCommand(char* command)   {
     /***** SEPERATE BY WHITESPACE *****/
     //first count how many words there are
     int wordCount = 0;
     int newWord = 1;
-    for(int w = 0; w < strlen(command); w++) {
+    int w;
+    for(w = 0; w < strlen(command); w++) {
         //if we hit white spaces, the next non-whitespace is a new word
         //TEST this might count end of string characters?
         if((command[w]==' ')||(command[w]=='\t'))  {
             newWord = 1;
-        } else if (newWord)    {
+        } else if (newWord) {
             wordCount++;
             newWord = 0;
         }
@@ -62,14 +62,14 @@ void processCommand(char* command)   {
     char* myargs[wordCount+1];
     //tokenize line into myargs[] until null (and save the null too)
     //TEST it does whitespaces and tabs as desired
-    int w = 0;
+    w = 0;
     myargs[w] = strtok(command, " \t");
     while(myargs[w]!=NULL){
         w++;
         myargs[w] = strtok(NULL, " \t");
     }
 
-
+    //printf("Word Count - %d \n",wordCount);
     /***** COMMAND TYPE *****/
     /*** EXIT ***/
     if(strcmp(myargs[0],"exit") == 0){
@@ -86,20 +86,19 @@ void processCommand(char* command)   {
         }
     }
     /*** PATH ***/
-    else if(strcmp(myargs[0], "path") == 0){
-        //TODO change/fix path
-        char* args = malloc(255*wordCount); //malloc ~255 characters per path
-        strcat(args, "PATH=");
-        //append arguments
-        printf("%d words\n", wordCount);
-        for(int i = 1; i<wordCount; i++)  {
-            strcat(args, " ");
-            strcat(args, myargs[i]);
+    else if(strcmp(myargs[0], "path") == 0) {
+        int i;
+        int n = sizeof(myargs)/sizeof(myargs[0]);
+        /**check if user enters just path. if so then set path array NULL 
+        so that all commands fail else add each path to the path variable **/
+        if(myargs[1] != NULL) {
+            for(i=0;i<n-2;i++) {
+                path[i] = myargs[i+1];
+            }
+        } else {
+            path[0] = NULL;
         }
-        //this might need to have no space after the equals
-        printf("%s\n", args);
-        putenv(args);
-        free(args);
+        
     }
     /*** EXTERNAL ***/
     else {
@@ -109,7 +108,8 @@ void processCommand(char* command)   {
 
             /***** REDIRECTION *****/
             //Check for redirections (which don't need spaces, and take only one argument, which is a path)
-            for(int i = 1; i<wordCount; i++)    {
+            int i;
+	    for(i = 1; i<wordCount; i++) {
                 char* ret = strchr(myargs[i], '>');
                 if (ret!=NULL)  {
                     char* output;
@@ -120,7 +120,7 @@ void processCommand(char* command)   {
                         //remove ret from myargs[i]
                         ret = '\0';
                     } else if (i=wordCount-2)   {   //i is in second to last word
-                        if (strcmp(ret, '>') != 0)  {   //was not last character
+                        if (strcmp(ret, ">") != 0)  {   //was not last character
                             write(STDERR_FILENO, error_message, strlen(error_message));
                             return;
                         }
@@ -146,49 +146,66 @@ void processCommand(char* command)   {
                     break;
                 }
             }
-
-            execvp(myargs[0], myargs);
-
-            write(STDERR_FILENO, error_message, strlen(error_message));
-            exit(1);
+        
+        //path search logic
+            char* binaryPath;
+            size_t j = 0;
+            int n = sizeof(path) / sizeof(path[0]);
+            printf("size");
+            if(path[j] != NULL) {
+                for (j = 0; j < n;  j++) {
+                    binaryPath = strcat(strcat(strdup(path[j]),"/"), myargs[0]);
+                    if(access(binaryPath, X_OK) == 0) {
+                        break;
+                    }
+                }
+            }
+           execv(binaryPath, myargs)
+           
+           write(STDERR_FILENO, error_message, strlen(error_message));
+           exit(1);
         }
     }
+    return;
 }
 
 void processCommandLine(char* commandLine)   {
     //replace newline character with '\0' as it causes problems in execvp
     commandLine[strcspn(commandLine, "\n" )] = '\0';
 
-
     /***** PARALLEL *****/
     int commandCount = 1;
-    for(int i = 0; i < strlen(commandLine); i++) {  
+    int i;
+    for(i = 0; i < strlen(commandLine); i++) {  
         if(commandLine[i] == '&')  {
             commandCount++;
         }
     }
+    
     //create an array with that many slots
     char* commands[commandCount];
     //tokenize commanddLine into commands[]
     commands[0] = strtok(commandLine, "&");
-    for(int i = 1; i<commandCount; i++){
+    for(i = 1; i<commandCount; i++){
         commands[i] = strtok(NULL, "&");
     }
 
-
+    //exprintf("Command Count - %d\n", commandCount);
     /*** EXECUTE/PROCESS EACH COMMAND ***/
-    for(int i = 0; i<commands; i++) {
+    for (i = 0; i<commandCount; i++) {
         processCommand(commands[i]);
     }
-    
 
-    /***** WAIT FOR ALL CHILDREN *****/
+    wait(NULL);
+
+    /***** WAIT FOR ALL CHILDREN ****
     int status = 0;
     pid_t wpid;
     while ((wpid = wait(&status)) != -1);
-
+    */
     //finished processing a command line
     return;
+    
 }
 
 
