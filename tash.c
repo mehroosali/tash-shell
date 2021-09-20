@@ -93,12 +93,11 @@ void processCommand(char* command)   {
         so that all commands fail else add each path to the path variable **/
         if(myargs[1] != NULL) {
             for(i=0;i<n-2;i++) {
-                path[i] = myargs[i+1];
+                path[i] = strdup(myargs[i+1]);
             }
         } else {
             path[0] = NULL;
         }
-        
     }
     /*** EXTERNAL ***/
     else {
@@ -109,22 +108,26 @@ void processCommand(char* command)   {
             /***** REDIRECTION *****/
             //Check for redirections (which don't need spaces, and take only one argument, which is a path)
             int i;
-	    for(i = 1; i<wordCount; i++) {
+            for(i = 1; i<wordCount; i++) {
                 char* ret = strchr(myargs[i], '>');
                 if (ret!=NULL)  {
                     char* output;
                     if(i==wordCount-1)  {   //i is the last word
                         //TEST that this points to what I want it to
                         //copy output
-                        strcpy(output, ret+1);
+                        output = strdup(ret+1);
                         //remove ret from myargs[i]
-                        ret = '\0';
+                        if(strcmp(myargs[i],ret)==0)    {
+                            myargs[i] = NULL;
+                        } else  {
+                            myargs[i][strcspn(myargs[i], ">" )] = '\0'; 
+                        }
                     } else if (i=wordCount-2)   {   //i is in second to last word
                         if (strcmp(ret, ">") != 0)  {   //was not last character
                             write(STDERR_FILENO, error_message, strlen(error_message));
                             return;
                         }
-                        strcpy(output, myargs[i+1]);
+                        output = strdup(myargs[i+1]);
                         myargs[i+1] = NULL;
                     } else  {   //had more than one word left
                         write(STDERR_FILENO, error_message, strlen(error_message));
@@ -151,19 +154,19 @@ void processCommand(char* command)   {
             char* binaryPath;
             size_t j = 0;
             int n = sizeof(path) / sizeof(path[0]);
-            printf("size");
-            if(path[j] != NULL) {
-                for (j = 0; j < n;  j++) {
-                    binaryPath = strcat(strcat(strdup(path[j]),"/"), myargs[0]);
-                    if(access(binaryPath, X_OK) == 0) {
-                        break;
-                    }
+            
+            for (j = 0; j < n;  j++) {
+                if(path[j] == NULL) {
+                    break;
+                }
+                binaryPath = strcat(strcat(strdup(path[j]),"/"), myargs[0]);
+                if(access(binaryPath, X_OK) == 0) {
+                    execv(binaryPath, myargs);
                 }
             }
-           execv(binaryPath, myargs)
-           
-           write(STDERR_FILENO, error_message, strlen(error_message));
-           exit(1);
+            
+            write(STDERR_FILENO, error_message, strlen(error_message));
+          
         }
     }
     return;
