@@ -42,7 +42,7 @@ char error_message[30] = "An error has occurred\n";
 //TODO make path variable better
 char* path[10] = {"/bin"};
 
-void processCommand(char* command)   {
+int processCommand(char* command)   {
     /***** SEPERATE BY WHITESPACE *****/
     //first count how many words there are
     int wordCount = 0;
@@ -78,12 +78,14 @@ void processCommand(char* command)   {
         } else {
             exit(0);
         }
+        return 0;
     }
     /*** CD ***/
     else if(strcmp(myargs[0], "cd") == 0){
         if(wordCount == 1 || wordCount > 2 || chdir(myargs[1]) != 0 ){
             write(STDERR_FILENO, error_message, strlen(error_message));
         }
+        return 0;
     }
     /*** PATH ***/
     else if(strcmp(myargs[0], "path") == 0) {
@@ -98,6 +100,7 @@ void processCommand(char* command)   {
         } else {
             path[0] = NULL;
         }
+        return 0;
     }
     /*** EXTERNAL ***/
     else {
@@ -108,40 +111,44 @@ void processCommand(char* command)   {
             /***** REDIRECTION *****/
             //Check for redirections (which don't need spaces, and take only one argument, which is a path)
             int i;
-            for(i = 1; i<wordCount; i++) {
+            for(i = 0; i<wordCount; i++) {
                 char* ret = strchr(myargs[i], '>');
                 if (ret!=NULL)  {
                     char* output;
                     if(i==wordCount-1)  {   //i is the last word
-                        //TEST that this points to what I want it to
                         //copy output
                         output = strdup(ret+1);
-                        //remove ret from myargs[i]
+                        //either remove the argument or terminate it early
                         if(strcmp(myargs[i],ret)==0)    {
                             myargs[i] = NULL;
                         } else  {
                             myargs[i][strcspn(myargs[i], ">" )] = '\0'; 
                         }
-                    } else if (i=wordCount-2)   {   //i is in second to last word
+                    } else if (i==wordCount-2)   {   //i is in second to last word
                         if (strcmp(ret, ">") != 0)  {   //was not last character
                             write(STDERR_FILENO, error_message, strlen(error_message));
-                            return;
+                            exit(-1); //child exits
                         }
                         output = strdup(myargs[i+1]);
                         myargs[i+1] = NULL;
+                        //either remove the argument or terminate it early
+                        if(strcmp(myargs[i],ret)==0)    {
+                            myargs[i] = NULL;
+                        } else  {
+                            myargs[i][strcspn(myargs[i], ">" )] = '\0'; 
+                        }
                     } else  {   //had more than one word left
                         write(STDERR_FILENO, error_message, strlen(error_message));
-                        return;
+                        exit(-1); //child exits
                     }
-                    //attempt to make it work
 
                     //change stdout
                     close(1);
-                    int fd;
-                    if (fd = open(output, O_WRONLY|O_CREAT|O_APPEND, 0644) == -1)    {
+                    int fd = open(output, O_WRONLY|O_CREAT|O_APPEND, 0644);
+                    if (fd == -1)    {
                         //file redirection failed
                         write(STDERR_FILENO, error_message, strlen(error_message));
-                        return;
+                        exit(-1); //child exits
                     }
                     //change stderr
                     close(2);
@@ -164,12 +171,12 @@ void processCommand(char* command)   {
                     execv(binaryPath, myargs);
                 }
             }
-            
             write(STDERR_FILENO, error_message, strlen(error_message));
-          
         }
+        return 1;
     }
-    return;
+
+    return -1;
 }
 
 void processCommandLine(char* commandLine)   {
@@ -193,22 +200,21 @@ void processCommandLine(char* commandLine)   {
         commands[i] = strtok(NULL, "&");
     }
 
+    int children = 0;
+
     //exprintf("Command Count - %d\n", commandCount);
     /*** EXECUTE/PROCESS EACH COMMAND ***/
     for (i = 0; i<commandCount; i++) {
-        processCommand(commands[i]);
+        children += processCommand(commands[i]);
     }
 
-    wait(NULL);
+    /*** WAIT FOR ALL CHILDREN ***/
+    for (i = 0; i<children; i++)    {
+        //If a children already exited, -1 will be gotten from wait but still works.
+        wait(NULL);
+    }
 
-    /***** WAIT FOR ALL CHILDREN ****
-    int status = 0;
-    pid_t wpid;
-    while ((wpid = wait(&status)) != -1);
-    */
-    //finished processing a command line
     return;
-    
 }
 
 
