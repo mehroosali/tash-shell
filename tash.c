@@ -172,6 +172,7 @@ int processCommand(char* command)   {
                 }
             }
             write(STDERR_FILENO, error_message, strlen(error_message));
+            exit(-1); //child exits
         }
         return 1;
     }
