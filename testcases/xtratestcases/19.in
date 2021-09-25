@@ -1,3 +1,3 @@
 path <path to P1>/P1 /usr/bin
-cd src/test&myls&pwd& uname
+cd test&myls&pwd& uname
 exit
