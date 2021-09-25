@@ -8,46 +8,45 @@
 #include <sys/wait.h>
 
 /************
-ROUGH OUTLINE
+OUTLINE
 
 (FUNCTION)
-OneCommandLine:
-    Process commandLine by '&'(parallel), creating an array
-    While commands remain:
-        Process commandLine by ' \t'
+processCommand: returns number of children created
+    Process commandLine by ' \t'
         InBuildCommands()
         else: fork
             Process commandLine further by '>'
                 Do appropriate redirection
             Child:
-                Check for redirect
                 Execute
-                SafetyExit
-    All commands forked
+                SafetyExit (children all exit when error rather than returning)
+            Parent:
+                return 1
+return 0
+
+(FUNCTION)
+processCommandLine: returns void
+    Process commandLine by '&'(parallel), creating an array
+    While commands remain:
+        processCommand and count children created
     Parent: wait for all children
-Return
+return
 
 (MAIN)
 Batch or not?
-batch?: while{commandLine}:OneCommandLine    //Error only if we get >1 arg, or a bad batch file
-else promt, while{commandLine}: OneCommandLine, Prompt
+batch?: while{commandLine}:processCommandLine    //Error only if we get >1 arg, or a bad batch file
+else promt, while{commandLine}: processCommandLine, Prompt
 Program end
 
-
-EOF exits us
 *************/
 
 /*** GLOBAL VARIABLES ***/
 char error_message[30] = "An error has occurred\n";
-//TODO make path variable better
-char* path[10] = {"/bin"};
+char* path[256] = {"/bin"}; //allows 256 individual path variables
 
 //returns number of children started
 int processCommand(char* command)   {
-
-    char *r = NULL;
-    char *q = "\0";
-
+    
     //if null command just return
     if(command == NULL)   {
         return(0);
@@ -60,7 +59,6 @@ int processCommand(char* command)   {
     int w;
     for(w = 0; w < strlen(command); w++) {
         //if we hit white spaces, the next non-whitespace is a new word
-        //TEST this might count end of string characters?
         if((command[w]==' ')||(command[w]=='\t'))  {
             newWord = 1;
         } else if (newWord) {
@@ -71,7 +69,6 @@ int processCommand(char* command)   {
     //create an array with wordCount many words (and one more for null terminated)
     char* myargs[wordCount+1];
     //tokenize line into myargs[] until null (and save the null too)
-    //TEST it does whitespaces and tabs as desired
     w = 0;
     myargs[w] = strtok(command, " \t");
     while(myargs[w]!=NULL){
@@ -84,7 +81,6 @@ int processCommand(char* command)   {
         return(0);
     }
 
-    //printf("Word Count - %d \n",wordCount);
     /***** COMMAND TYPE *****/
     /*** EXIT ***/
     if(strcmp(myargs[0],"exit") == 0){
@@ -104,17 +100,16 @@ int processCommand(char* command)   {
     }
     /*** PATH ***/
     else if(strcmp(myargs[0], "path") == 0) {
-        int i;
+        int i = 0;
         int n = sizeof(myargs)/sizeof(myargs[0]);
-        /**check if user enters just path. if so then set path array NULL 
+        /**check if user enters just path. if so then set path array empty 
         so that all commands fail else add each path to the path variable **/
         if(myargs[1] != NULL) {
             for(i=0;i<n-2;i++) {
                 path[i] = strdup(myargs[i+1]);
             }
-        } else {
-            path[0] = NULL;
         }
+        path[i] = NULL;
         return 0;
     }
     /*** EXTERNAL ***/
@@ -179,18 +174,18 @@ int processCommand(char* command)   {
                 }
             }
         
-        //ignore empty commands
-        if(myargs[0] == NULL || strcmp(myargs[0],"\0")==0 || strcmp(myargs[0],"")==0)   {
-            exit(0);
-        }
+            //ignore empty commands
+            if(myargs[0] == NULL || strcmp(myargs[0],"\0")==0 || strcmp(myargs[0],"")==0)   {
+                exit(0);
+            }
 
-        //path search logic
+            //path search logic
             char* binaryPath;
             size_t j = 0;
             int n = sizeof(path) / sizeof(path[0]);
             
             for (j = 0; j < n;  j++) {
-                if(path[j] == NULL) {
+                if(path[j] == NULL || strcmp(path[j],"")==0) {
                     break;
                 }
                 binaryPath = strcat(strcat(strdup(path[j]),"/"), myargs[0]);
@@ -203,8 +198,7 @@ int processCommand(char* command)   {
         }
         return 1;
     }
-
-    return -1;
+    return 0;
 }
 
 void processCommandLine(char* commandLine)   {
@@ -243,7 +237,6 @@ void processCommandLine(char* commandLine)   {
 
     int children = 0;
 
-    //exprintf("Command Count - %d\n", commandCount);
     /*** EXECUTE/PROCESS EACH COMMAND ***/
     for (i = 0; i<commandCount; i++) {
         children += processCommand(commands[i]);
