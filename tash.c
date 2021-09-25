@@ -42,7 +42,14 @@ char error_message[30] = "An error has occurred\n";
 //TODO make path variable better
 char* path[10] = {"/bin"};
 
+//returns number of children started
 int processCommand(char* command)   {
+
+    //if null command just return
+    if(command == NULL)   {
+        return(0);
+    }
+
     /***** SEPERATE BY WHITESPACE *****/
     //first count how many words there are
     int wordCount = 0;
@@ -115,6 +122,13 @@ int processCommand(char* command)   {
                 char* ret = strchr(myargs[i], '>');
                 if (ret!=NULL)  {
                     char* output;
+                    //make sure there is an argument before the redirection
+                    if(i==0 && strcmp(myargs[i],ret)==0)    {
+                        //error and exit child
+                        write(STDERR_FILENO, error_message, strlen(error_message));
+                        exit(-1);
+                    }
+
                     if(i==wordCount-1)  {   //i is the last word
                         //copy output
                         output = strdup(ret+1);
@@ -157,6 +171,11 @@ int processCommand(char* command)   {
                 }
             }
         
+        //ignore empty commands
+        if(myargs[0] == NULL || strcmp(myargs[0],"\0")==0 || strcmp(myargs[0],"")==0)   {
+            exit(0);
+        }
+
         //path search logic
             char* binaryPath;
             size_t j = 0;
@@ -199,6 +218,10 @@ void processCommandLine(char* commandLine)   {
     commands[0] = strtok(commandLine, "&");
     for(i = 1; i<commandCount; i++){
         commands[i] = strtok(NULL, "&");
+        if(commands[i]!=NULL && (strcmp(commands[i],"\0")==0 || strcmp(commands[i],"")==0) && i<commandCount-1)   {
+            write(STDERR_FILENO, error_message, strlen(error_message));
+            return;
+        }
     }
 
     int children = 0;
