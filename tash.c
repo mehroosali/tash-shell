@@ -45,6 +45,9 @@ char* path[10] = {"/bin"};
 //returns number of children started
 int processCommand(char* command)   {
 
+    char *r = NULL;
+    char *q = "\0";
+
     //if null command just return
     if(command == NULL)   {
         return(0);
@@ -74,6 +77,11 @@ int processCommand(char* command)   {
     while(myargs[w]!=NULL){
         w++;
         myargs[w] = strtok(NULL, " \t");
+    }
+
+    //if null first argument just return
+    if(myargs[0] == NULL)   {
+        return(0);
     }
 
     //printf("Word Count - %d \n",wordCount);
@@ -218,7 +226,16 @@ void processCommandLine(char* commandLine)   {
     commands[0] = strtok(commandLine, "&");
     for(i = 1; i<commandCount; i++){
         commands[i] = strtok(NULL, "&");
-        if(commands[i]!=NULL && (strcmp(commands[i],"\0")==0 || strcmp(commands[i],"")==0) && i<commandCount-1)   {
+    }
+
+    //check that there isn't an empty command except possibly last
+    for(i = 0; i<commandCount-1; i++)   {
+        if(commands[i] == NULL || commands[i][0]=='\0')   {
+            write(STDERR_FILENO, error_message, strlen(error_message));
+            return;
+        }
+        char *checker = strdup(commands[i]);
+        if(strtok(checker, " \t")==NULL)    {
             write(STDERR_FILENO, error_message, strlen(error_message));
             return;
         }
